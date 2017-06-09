@@ -17,6 +17,7 @@ sub new {
         _cur_fh    => {},
         _pending   => {},
         check_freq => 2,
+        tail_new   => 0,
     };
 
     if (defined(my $globs = delete $args{globs})) {
@@ -28,6 +29,9 @@ sub new {
     if (defined(my $check_freq = delete $args{check_freq})) {
         $self->{check_freq} = $check_freq;
     }
+    if (defined(my $tail_new = delete $args{tail_new})) {
+        $self->{tail_new} = $tail_new;
+    }
     die "Unknown arguments: ".join(", ", keys %args) if keys %args;
 
     bless $self, $class;
@@ -36,7 +40,7 @@ sub new {
 sub _switch {
     my ($self, $glob, $filename, $seek_end) = @_;
 
-    say "D: opening $filename";
+    #say "D: opening $filename";
     $self->{_cur_file}{$glob} = $filename;
     open my $fh, "<", $filename or die "Can't open $filename: $!";
     seek $fh, 0, 2 if $seek_end;
@@ -107,7 +111,7 @@ sub getline {
         } elsif (keys %{$self->{_pending}{$glob}}) {
             # switch to a newer named file
             my @files = sort keys %{$self->{_pending}{$glob}};
-            $self->_switch($glob, $files[0]);
+            $self->_switch($glob, $files[0], $self->{tail_new});
             delete $self->{_pending}{$glob}{$files[0]};
             $line = $self->_getline($self->{_cur_fh}{$glob});
             last if length $line;
@@ -190,6 +194,11 @@ Known arguments:
 Glob patterns.
 
 =item * check_freq => posint (default: 2)
+
+=item * tail_new => bool
+
+If set to true, then new file that appears will be tail'ed instead of read from
+the beginning.
 
 =back
 
