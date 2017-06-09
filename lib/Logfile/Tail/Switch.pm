@@ -110,9 +110,7 @@ sub getline {
  use Logfile::Tail::Switch;
  use Time::HiRes 'sleep'; # for subsecond sleep
 
- my $tail = Logfile::Tail::Switch->new(
-     glob => "/s/example.com/syslog/http_access.*.log",
- );
+ my $tail = Logfile::Tail::Switch->new("/s/example.com/syslog/http_access.*.log");
 
  # tail
  while (1) {
