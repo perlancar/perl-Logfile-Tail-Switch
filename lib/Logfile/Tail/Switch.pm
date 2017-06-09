@@ -7,22 +7,54 @@ use 5.010001;
 use strict;
 use warnings;
 
-use File::Tail;
+use Time::HiRes 'time';
 
 sub new {
-    my ($class, $glob) = @_;
+    my ($class, $glob, $opts) = @_;
+
+    defined($glob) or die "Please specify glob";
+    $opts //= {};
+
+    $opts->{check_freq} //= 5;
 
     my $self = {
         glob => $glob,
+        opts => $opts,
+        _cur_file => undef,
+        _cur_fh   => undef,
+        _pending  => {},
     };
 
     bless $self, $class;
 }
 
-sub _switch_cur {
-    my ($self, $filename) = @_;
+sub _switch {
+    my ($self, $filename, $seek_end) = @_;
 
-    $self->{_cur} = File::Tail->new($filename);
+    #say "D: opening $filename";
+    $self->{_cur_file} = $filename;
+    open my $fh, "<", $filename or die "Can't open $filename: $!";
+    seek $fh, 0, 2 if $seek_end;
+    $self->{_cur_fh} = $fh;
+}
+
+sub _getline {
+    my $self = shift;
+
+    my $fh = $self->{_cur_fh};
+    my $size = -s $fh;
+    my $pos = tell $fh;
+    if ($pos == $size) {
+        # we are still at the end of file, return empty string
+        return '';
+    } elsif ($pos > $size) {
+        # file reduced in size, it probably means it has been rotated, start
+        # from the beginning
+        seek $fh, 0, 0;
+    } else {
+        # there are new content to read after our position
+    }
+    return(<$fh> // '');
 }
 
 sub getline {
@@ -32,54 +64,40 @@ sub getline {
 
   CHECK_NEWER_FILES:
     {
-        last unless !$self->{_last_check_time} || $self->{_last_check_time} < $now - 5;
+        last if $self->{_last_check_time} &&
+            $self->{_last_check_time} >= $now - $self->{opts}{check_freq};
+        #say "D: checking for newer file";
         my @files = sort glob($self->{glob});
+        #say "D: files matching glob: ".join(", ", @files);
+        $self->{_last_check_time} = $now;
         last unless @files;
-        if (defined $self->{_cur}) {
+        if (defined $self->{_cur_fh}) {
             for (@files) {
                 # there is a newer file than the current one, add to the pending
                 # list of files to be read after the current one
+                #say "D: there is a newer file: $_";
                 $self->{_pending}{$_} = 1
-                    if $_ gt $self->{_cur};
+                    if $_ gt $self->{_cur_file};
             }
         } else {
-            # at the beginning, pick the newest file in the pattern and tail it
-            $self->_switch_cur($glob, $files[-1], 1);
-            $self->{_pending}{$glob} = {};
+            # this is our first time, pick the newest file in the pattern and
+            # tail it.
+            $self->_switch($files[-1], 1);
         }
     }
 
-  GLOB:
-    for my $glob (keys %{ $self->{_cur_fh} }) {
-      READ:
-        my $fh = $self->{_cur_fh}{$glob};
-        my $line = $fh->getline;
-        if (defined $line) {
-            return $line;
-        } else {
-            #say "D:got undef";
-            $self->{_cur_eof}{$glob} = 1 if $fh->eof;
-            if ($self->{_cur_eof}{$glob}) {
-                #say "D:is eof";
-                # we are at the end of the file ...
-                my @pending = sort keys %{ $self->{_pending}{$glob} };
-                if (@pending) {
-                    #say "D:has pending file";
-                    # if there is another file pending, switch to that file
-                    $self->_switch_cur($glob, $pending[0]);
-                    delete $self->{_pending}{$glob}{$pending[0]};
-                    goto READ;
-                } else {
-                    #say "D:no pending file";
-                    # there is no other file, keep at the current file
-                    next GLOB;
-                }
-            } else {
-                #say "D:not eof";
-            }
-        }
+    # we don't have any matching files
+    return '' unless $self->{_cur_fh};
+
+    my $line = $self->_getline;
+    if (!length($line) && keys %{$self->{_pending}}) {
+        # switch to a newer named file
+        my @files = sort keys %{$self->{_pending}};
+        $self->_switch($files[0]);
+        delete $self->{_pending}{$files[0]};
+        $line = $self->_getline;
     }
-    undef;
+    $line;
 }
 
 1;
@@ -141,13 +159,15 @@ next day, that file will be read then tail'ed. And so on.
 
 =head1 METHODS
 
-=head2 Logfile::Tail::Switch->new(%args) => obj
+=head2 Logfile::Tail::Switch->new($glob [, \%opts ]) => obj
 
-Constructor. Arguments:
+Constructor.
+
+Known options:
 
 =over
 
-=item * glob => str
+=item * check_freq => posint (default: 5)
 
 =back
 
@@ -159,6 +179,10 @@ Will return the next line or empty string if no new line is available.
 =head1 SEE ALSO
 
 L<File::Tail>, L<File::Tail::Dir>, L<IO::Tail>
+
+L<Tie::Handle::TailSwitch>
+
+L<tailswitch> from L<App::tailswitch>
 
 Spanel, L<http://spanel.info>.
 

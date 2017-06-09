@@ -6,43 +6,62 @@ use warnings;
 use Test::More 0.98;
 
 use File::Temp qw(tempdir);
-use Logfile::Tail::Timestamp;
+use Logfile::Tail::Switch;
 use Time::HiRes 'sleep';
 
 my $tempdir = tempdir();
-diag "tempdir: $tempdir";
+note "tempdir: $tempdir";
 
 sub _append {
     my ($filename, $str) = @_;
     open my $fh, ">>", $filename or die;
-    #$fh->autoflush(1);
     print $fh $str;
     close $fh;
 }
 
-subtest "single glob" => sub {
-    my $dir = "$tempdir/1";
+subtest "no matching files" => sub {
+    my $dir = "$tempdir/nomatch";
     mkdir $dir, 0755 or die;
     chdir $dir or die;
+
+    my $tail = Logfile::Tail::Switch->new("*");
+    is($tail->getline, '');
+};
+
+subtest "basic" => sub {
+    my $dir = "$tempdir/basic";
+    mkdir $dir, 0755 or die;
+    chdir $dir or die;
+
     _append("log-a", "one-a\n");
     _append("log-b", "one-b\n");
-    my $tail = Logfile::Tail::Timestamp->new(
-        globs => ["log-*"],
-    );
-    is_deeply($tail->getline, undef, "initial");
+    my $tail = Logfile::Tail::Switch->new("log-*", {check_freq=>0.1});
+    is($tail->getline, '', "initial");
     _append("log-a", "two-a\n");
-    is_deeply($tail->getline, undef, "line added to log-a has no effect");
+    is($tail->getline, '', "line added to log-a has no effect");
     _append("log-b", "two-b\nthree-b\n");
-    is_deeply($tail->getline, "two-b\n", "line added to log-b is seen (1)");
-    is_deeply($tail->getline, "three-b\n", "line added to log-b is seen (2)");
+    is($tail->getline, "two-b\n", "line added to log-b is seen (1)");
+    is($tail->getline, "three-b\n", "line added to log-b is seen (2)");
+    is($tail->getline, "", "no more lines");
+
+    _append("log-c", "one-c\ntwo-c\n");
+    _append("log-d", "one-d\ntwo-d\n");
+    is($tail->getline, "", "no more lines yet");
+    sleep 0.11;
+    is($tail->getline, "one-c\n", "line from log-c is seen (1)");
+    is($tail->getline, "two-c\n", "line from log-c is seen (1)");
+    is($tail->getline, "one-d\n", "line from log-d is seen (2)");
+    is($tail->getline, "two-d\n", "line from log-d is seen (2)");
+    is($tail->getline, "", "no more lines (2)");
+
+    _append("log-b", "four-b\n");
+    is($tail->getline, '', "line added to log-b now has no effect");
+    _append("log-c", "three-c\n");
+    is($tail->getline, '', "line added to log-c has no effect");
+    _append("log-d", "three-d\n");
+    is($tail->getline, "three-d\n", "line from log-d is seen");
 };
 
-subtest "two globs" => sub {
-    my $dir = "$tempdir/2";
-    mkdir $dir, 0755 or die;
-    chdir $dir or die;
-
-    ok 1;
-};
+# XXX truncating a log file
 
 done_testing;
