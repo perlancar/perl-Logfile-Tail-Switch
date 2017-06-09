@@ -70,7 +70,10 @@ sub getline {
         my @files = sort glob($self->{glob});
         #say "D: files matching glob: ".join(", ", @files);
         $self->{_last_check_time} = $now;
-        last unless @files;
+        unless (@files) {
+            warn "No files matched '$self->{glob}'";
+            last;
+        }
         if (defined $self->{_cur_fh}) {
             for (@files) {
                 # there is a newer file than the current one, add to the pending
