@@ -15,7 +15,7 @@ sub new {
     defined($glob) or die "Please specify glob";
     $opts //= {};
 
-    $opts->{check_freq} //= 5;
+    $opts->{check_freq} //= 2;
 
     my $self = {
         glob => $glob,
@@ -142,7 +142,7 @@ When using this class, you specify a glob pattern of files, e.g.
 C</s/example.com/syslog/http_access.*.log>. Then you call the C<getline> method.
 
 This class will first select the newest file (via asciibetical sorting) from the
-glob pattern and tail it. Then, periodically (by default at most every 5
+glob pattern and tail it. Then, periodically (by default at most every 2
 seconds) the glob pattern will be checked again. If there is one or more newer
 files, they will be read in full and then tail-ed, until an even newer file
 comes along. For example, this is the list of files in C</s/example.com/syslog>
@@ -168,7 +168,7 @@ Known options:
 
 =over
 
-=item * check_freq => posint (default: 5)
+=item * check_freq => posint (default: 2)
 
 =back
 
