@@ -9,6 +9,8 @@ use warnings;
 
 use Time::HiRes 'time';
 
+our $WARN_NO_MATCH = 1;
+
 sub new {
     my ($class, %args) = @_;
 
@@ -81,7 +83,7 @@ sub getline {
             my @files = sort glob($glob);
             #say "D: files matching glob: ".join(", ", @files);
             unless (@files) {
-                warn "No files matched '$glob'";
+                warn "No files matched '$glob'" if $WARN_NO_MATCH;
                 next;
             }
             if (defined $self->{_cur_fh}{$glob}) {
@@ -205,6 +207,13 @@ the beginning.
 =head2 $tail->getline() => str
 
 Will return the next line or empty string if no new line is available.
+
+
+=head1 PACKAGE VARIABLES
+
+=head2 $WARN_NO_MATCH
+
+Boolean, default 1. Whether to warn when the glob does not match any files.
 
 
 =head1 SEE ALSO
