@@ -1,9 +1,9 @@
-0.004   2019-01-30 (PERLANCAR)
+0.004   2019-01-30  Released-By: PERLANCAR
 
 	- Add variable: $WARN_NO_MATCH.
 
 
-0.003   2017-06-09 (PERLANCAR)
+0.003   2017-06-09  Released-By: PERLANCAR
 
 	- [Incompatible change] Change construction argument syntax to
 	  accepting hash arguments.
@@ -17,13 +17,13 @@
 	- [ux] Warn when no files matched glob pattern.
 
 
-0.002   2017-06-09 (PERLANCAR)
+0.002   2017-06-09  Released-By: PERLANCAR
 
 	- No functional changes.
 
 	- Fix example in Synopsis.
 
 
-0.001   2017-06-09 (PERLANCAR)
+0.001   2017-06-09  Released-By: PERLANCAR
 
         - First release.
